@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zendesk Custom Search</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 Zendesk Search</h1>
+    </header>
+
+    <section class="search-section">
+      <h2>Search Tickets</h2>
+      
+      <div class="form-group">
+        <label for="searchQuery">Search Query</label>
+        <input type="text" id="searchQuery" placeholder="Enter search terms..." />
+      </div>
+
+      <div class="form-group field-status">
+        <label for="status">Status</label>
+        <select id="status">
+          <option value="">Any</option>
+          <option value="new">New</option>
+          <option value="open">Open</option>
+          <option value="pending">Pending</option>
+          <option value="hold">On Hold</option>
+          <option value="solved">Solved</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+
+      <div class="form-group field-priority">
+        <label for="priority">Priority</label>
+        <select id="priority">
+          <option value="">Any</option>
+          <option value="low">Low</option>
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+
+      <div class="form-group field-assignee">
+        <label for="assignee">Assignee</label>
+        <input type="text" id="assignee" placeholder="me, none, or name/email" />
+      </div>
+
+      <div class="form-group field-requester">
+        <label for="requester">Requester</label>
+        <input type="text" id="requester" placeholder="me or name/email" />
+      </div>
+
+      <div class="form-group field-tags">
+        <label for="tags">Tags</label>
+        <input type="text" id="tags" placeholder="tag1, tag2, tag3" />
+      </div>
+
+      <div id="customFieldsContainer">
+        <!-- Saved custom fields will be rendered here as regular form groups -->
+      </div>
+
+      <details class="manage-fields-details">
+        <summary>Manage custom fields</summary>
+        <div class="manage-fields-form">
+          <p class="manage-fields-help">Add your Zendesk custom fields here. They'll appear as regular search fields above.</p>
+          <div id="savedFieldsList" class="saved-fields-list">
+            <p class="no-fields-msg">No custom fields configured.</p>
+          </div>
+          <div class="add-field-row">
+            <input type="text" id="newFieldName" placeholder="Field Name (e.g., Product Type)" />
+            <input type="text" id="newFieldId" placeholder="Field ID (e.g., 12345678)" />
+            <button id="saveField" class="btn btn-small">Add</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="manage-fields-details">
+        <summary>Manage standard fields</summary>
+        <div class="manage-fields-form">
+          <p class="manage-fields-help">Choose which standard fields to show in the search form.</p>
+          <div class="field-toggles">
+            <label class="toggle-row">
+              <input type="checkbox" id="toggle-status" checked /> Status
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="toggle-priority" checked /> Priority
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="toggle-assignee" checked /> Assignee
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="toggle-requester" checked /> Requester
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="toggle-tags" checked /> Tags
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <div class="button-group">
+        <button id="searchBtn" class="btn btn-primary">Search</button>
+        <button id="clearBtn" class="btn btn-secondary">Clear</button>
+      </div>
+    </section>
+
+    <section class="results-section">
+      <h2>Search Query Preview</h2>
+      <div id="queryPreview" class="query-preview">
+        <code>Enter search criteria above...</code>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

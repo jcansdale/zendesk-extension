@@ -1,0 +1,24 @@
+{
+  "name": "zendesk-custom-search",
+  "version": "1.0.0",
+  "description": "Chrome extension for custom Zendesk search with custom field support",
+  "private": true,
+  "scripts": {
+    "icons": "node generate-icons.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/zendesk-custom-search.git"
+  },
+  "keywords": [
+    "zendesk",
+    "chrome-extension",
+    "search",
+    "custom-fields"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "sharp": "^0.33.0"
+  }
+}
