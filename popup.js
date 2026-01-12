@@ -88,17 +88,32 @@ async function populateFromCurrentSearch() {
 }
 
 function parseAndPopulateQuery(query) {
+  // Helper to extract value (handles quoted and unquoted values)
+  function extractValue(match) {
+    const value = match[1];
+    // Remove surrounding quotes if present
+    if ((value.startsWith('"') && value.endsWith('"')) || 
+        (value.startsWith("'") && value.endsWith("'"))) {
+      return value.slice(1, -1);
+    }
+    return value;
+  }
+
+  // Pattern that handles both quoted and unquoted values
+  // Matches: field:"quoted value" or field:unquoted_value
+  const valuePattern = '(?:"[^"]*"|\'[^\']*\'|\\S+)';
+  
   // Known field patterns
   const fieldPatterns = {
-    status: /\bstatus:(\S+)/gi,
-    priority: /\bpriority:(\S+)/gi,
-    assignee: /\bassignee:(\S+)/gi,
-    requester: /\brequester:(\S+)/gi,
-    tags: /\btags:(\S+)/gi,
+    status: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
+    priority: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
+    assignee: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
+    requester: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
+    tags: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
   };
   
-  // Custom field pattern: custom_field_12345:value
-  const customFieldPattern = /\bcustom_field_(\d+):(\S+)/gi;
+  // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
+  const customFieldPattern = new RegExp(`\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
   
   let remainingQuery = query;
   
@@ -110,17 +125,17 @@ function parseAndPopulateQuery(query) {
         // For selects, use the first match
         const element = document.getElementById(field);
         if (element) {
-          element.value = matches[0][1].toLowerCase();
+          element.value = extractValue(matches[0]).toLowerCase();
         }
       } else if (field === 'tags') {
         // Combine all tag matches
-        const tags = matches.map(m => m[1]).join(', ');
+        const tags = matches.map(m => extractValue(m)).join(', ');
         const element = document.getElementById(field);
         if (element) element.value = tags;
       } else {
         // For text inputs (assignee, requester)
         const element = document.getElementById(field);
-        if (element) element.value = matches[0][1];
+        if (element) element.value = extractValue(matches[0]);
       }
       
       // Remove matched parts from remaining query
@@ -135,11 +150,15 @@ function parseAndPopulateQuery(query) {
   customMatches.forEach(match => {
     const fieldId = match[1];
     const value = match[2];
+    // Remove quotes if present
+    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
+                       (value.startsWith("'") && value.endsWith("'"))
+                       ? value.slice(1, -1) : value;
     
     // Try to find an existing input for this custom field
     const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
     if (input) {
-      input.value = value;
+      input.value = cleanValue;
     }
     
     remainingQuery = remainingQuery.replace(match[0], '');
@@ -279,6 +298,14 @@ function deleteSavedField(index) {
 function buildSearchQuery() {
   const parts = [];
 
+  // Helper to quote values with spaces
+  function quoteIfNeeded(value) {
+    if (value.includes(' ') && !value.startsWith('"')) {
+      return `"${value}"`;
+    }
+    return value;
+  }
+
   // Basic search query
   const query = searchQueryInput.value.trim();
   if (query) {
@@ -300,13 +327,13 @@ function buildSearchQuery() {
   // Assignee
   const assignee = assigneeInput.value.trim();
   if (assignee) {
-    parts.push(`assignee:${assignee}`);
+    parts.push(`assignee:${quoteIfNeeded(assignee)}`);
   }
 
   // Requester
   const requester = requesterInput.value.trim();
   if (requester) {
-    parts.push(`requester:${requester}`);
+    parts.push(`requester:${quoteIfNeeded(requester)}`);
   }
 
   // Tags
@@ -314,7 +341,7 @@ function buildSearchQuery() {
   if (tags) {
     const tagList = tags.split(',').map(t => t.trim()).filter(t => t);
     tagList.forEach(tag => {
-      parts.push(`tags:${tag}`);
+      parts.push(`tags:${quoteIfNeeded(tag)}`);
     });
   }
 
@@ -324,7 +351,7 @@ function buildSearchQuery() {
     const fieldId = input.dataset.fieldId;
     const value = input.value.trim();
     if (fieldId && value) {
-      parts.push(`custom_field_${fieldId}:${value}`);
+      parts.push(`custom_field_${fieldId}:${quoteIfNeeded(value)}`);
     }
   });
 
