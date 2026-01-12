@@ -103,17 +103,20 @@ function parseAndPopulateQuery(query) {
   // Matches: field:"quoted value" or field:unquoted_value
   const valuePattern = '(?:"[^"]*"|\'[^\']*\'|\\S+)';
   
-  // Known field patterns
+  // Known field patterns (including negated versions with `-` prefix)
   const fieldPatterns = {
     status: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
     priority: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
     assignee: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
     requester: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
     tags: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
+    tagsNegated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
   };
   
   // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
   const customFieldPattern = new RegExp(`\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
+  // Negated custom field pattern: -custom_field_12345:value
+  const customFieldNegatedPattern = new RegExp(`-custom_field_(\\d+):(${valuePattern})`, 'gi');
   
   let remainingQuery = query;
   
@@ -128,10 +131,18 @@ function parseAndPopulateQuery(query) {
           element.value = extractValue(matches[0]).toLowerCase();
         }
       } else if (field === 'tags') {
-        // Combine all tag matches
-        const tags = matches.map(m => extractValue(m)).join(', ');
-        const element = document.getElementById(field);
-        if (element) element.value = tags;
+        // Combine all tag matches (positive tags)
+        const positiveTags = matches.map(m => extractValue(m));
+        // Also get negated tags
+        const negatedMatches = [...query.matchAll(fieldPatterns.tagsNegated)];
+        const negativeTags = negatedMatches.map(m => '-' + extractValue(m));
+        // Remove negated tag matches from remaining query
+        negatedMatches.forEach(m => {
+          remainingQuery = remainingQuery.replace(m[0], '');
+        });
+        const allTags = [...positiveTags, ...negativeTags].join(', ');
+        const element = document.getElementById('tags');
+        if (element) element.value = allTags;
       } else {
         // For text inputs (assignee, requester)
         const element = document.getElementById(field);
@@ -145,8 +156,11 @@ function parseAndPopulateQuery(query) {
     }
   }
   
-  // Extract custom fields
+  // Extract custom fields (including negated ones)
   const customMatches = [...query.matchAll(customFieldPattern)];
+  const customNegatedMatches = [...query.matchAll(customFieldNegatedPattern)];
+  
+  // Process positive custom fields
   customMatches.forEach(match => {
     const fieldId = match[1];
     const value = match[2];
@@ -159,6 +173,25 @@ function parseAndPopulateQuery(query) {
     const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
     if (input) {
       input.value = cleanValue;
+    }
+    
+    remainingQuery = remainingQuery.replace(match[0], '');
+  });
+  
+  // Process negated custom fields
+  customNegatedMatches.forEach(match => {
+    const fieldId = match[1];
+    const value = match[2];
+    // Remove quotes if present
+    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
+                       (value.startsWith("'") && value.endsWith("'"))
+                       ? value.slice(1, -1) : value;
+    
+    // Try to find an existing input for this custom field
+    const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
+    if (input) {
+      // Prefix with `-` to indicate negation
+      input.value = '-' + cleanValue;
     }
     
     remainingQuery = remainingQuery.replace(match[0], '');
@@ -336,22 +369,28 @@ function buildSearchQuery() {
     parts.push(`requester:${quoteIfNeeded(requester)}`);
   }
 
-  // Tags
+  // Tags (supports `-` prefix for NOT searches, e.g., "-auto_response_solved")
   const tags = tagsInput.value.trim();
   if (tags) {
     const tagList = tags.split(',').map(t => t.trim()).filter(t => t);
     tagList.forEach(tag => {
-      parts.push(`tags:${quoteIfNeeded(tag)}`);
+      const isNegated = tag.startsWith('-');
+      const cleanTag = isNegated ? tag.slice(1) : tag;
+      const prefix = isNegated ? '-' : '';
+      parts.push(`${prefix}tags:${quoteIfNeeded(cleanTag)}`);
     });
   }
 
-  // Custom fields (rendered as regular form inputs)
+  // Custom fields (supports `-` prefix for NOT searches, e.g., "-foo bar baz")
   const customFieldInputs = customFieldsContainer.querySelectorAll('.custom-field-input');
   customFieldInputs.forEach(input => {
     const fieldId = input.dataset.fieldId;
     const value = input.value.trim();
     if (fieldId && value) {
-      parts.push(`custom_field_${fieldId}:${quoteIfNeeded(value)}`);
+      const isNegated = value.startsWith('-');
+      const cleanValue = isNegated ? value.slice(1) : value;
+      const prefix = isNegated ? '-' : '';
+      parts.push(`${prefix}custom_field_${fieldId}:${quoteIfNeeded(cleanValue)}`);
     }
   });
 
