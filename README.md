@@ -38,7 +38,7 @@ A Chrome browser extension that provides a custom search interface for Zendesk w
    - **Priority**: Filter by priority level
    - **Assignee**: Use `me` for yourself, `none` for unassigned, or a name/email
    - **Requester**: Use `me` or a name/email
-   - **Tags**: Comma-separated list of tags
+   - **Tags**: Comma-separated list of tags (prefix with `-` to exclude, e.g., `-auto_response_solved`)
 
 4. Press **Enter** or click **Search** to execute
 5. The search opens in your current Zendesk tab
@@ -80,6 +80,14 @@ As you fill in the form, the Zendesk search box updates in real-time behind the 
 
 When you open the extension on a Zendesk search page, it reads the current query and populates the form fields - making it easy to modify existing searches.
 
+### NOT Searches (Exclusions)
+
+Exclude specific values by prefixing with `-`:
+
+- **Tags**: Enter `-auto_response_solved` to exclude tickets with that tag
+- **Custom Fields**: Enter `-some value` to exclude tickets with that custom field value
+- **Mixed**: Combine includes and excludes: `urgent, important, -auto_response_solved`
+
 ## Zendesk Search Syntax
 
 This extension generates Zendesk search queries using their syntax:
@@ -90,7 +98,9 @@ This extension generates Zendesk search queries using their syntax:
 - `assignee:none` - Unassigned tickets
 - `requester:me` - Tickets you requested
 - `tags:urgent` - Tickets with the "urgent" tag
+- `-tags:solved` - Tickets WITHOUT the "solved" tag
 - `custom_field_12345:value` - Custom field search
+- `-custom_field_12345:value` - Exclude custom field value
 
 ## Permissions
 
