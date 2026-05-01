@@ -103,26 +103,39 @@ function parseAndPopulateQuery(query) {
   // Matches: field:"quoted value" or field:unquoted_value
   const valuePattern = '(?:"[^"]*"|\'[^\']*\'|\\S+)';
   
-  // Known field patterns (including negated versions with `-` prefix)
   const fieldPatterns = {
-    status: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
-    priority: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
-    assignee: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
-    requester: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
-    tags: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
-    tagsNegated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
+    status: {
+      positive: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
+    },
+    priority: {
+      positive: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
+    },
+    assignee: {
+      positive: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-assignee:(${valuePattern})`, 'gi'),
+    },
+    requester: {
+      positive: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-requester:(${valuePattern})`, 'gi'),
+    },
+    tags: {
+      positive: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
+    },
   };
   
-  // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
-  const customFieldPattern = new RegExp(`\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
   // Negated custom field pattern: -custom_field_12345:value
+  // Process negated matches first, so the positive regex doesn't partially match inside.
   const customFieldNegatedPattern = new RegExp(`-custom_field_(\\d+):(${valuePattern})`, 'gi');
+  // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
+  // Avoid matching when preceded by '-', to prevent double-processing.
+  const customFieldPattern = new RegExp(`(?<!-)\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
   
   let remainingQuery = query;
   
   // Extract standard fields
-  for (const [field, pattern] of Object.entries(fieldPatterns)) {
-    const matches = [...query.matchAll(pattern)];
+  for (const [field, patterns] of Object.entries(fieldPatterns)) {
+    const matches = [...query.matchAll(patterns.positive)];
     if (matches.length > 0) {
       if (field === 'status' || field === 'priority') {
         // For selects, use the first match
@@ -134,7 +147,7 @@ function parseAndPopulateQuery(query) {
         // Combine all tag matches (positive tags)
         const positiveTags = matches.map(m => extractValue(m));
         // Also get negated tags
-        const negatedMatches = [...query.matchAll(fieldPatterns.tagsNegated)];
+        const negatedMatches = patterns.negated ? [...query.matchAll(patterns.negated)] : [];
         const negativeTags = negatedMatches.map(m => '-' + extractValue(m));
         // Remove negated tag matches from remaining query
         negatedMatches.forEach(m => {
@@ -143,8 +156,25 @@ function parseAndPopulateQuery(query) {
         const allTags = [...positiveTags, ...negativeTags].join(', ');
         const element = document.getElementById('tags');
         if (element) element.value = allTags;
+      } else if (field === 'assignee' || field === 'requester') {
+        // For text inputs (assignee, requester). Support negated version by prefixing '-'.
+        const negatedMatches = patterns.negated ? [...query.matchAll(patterns.negated)] : [];
+
+        const element = document.getElementById(field);
+        if (element) {
+          if (negatedMatches.length > 0) {
+            element.value = '-' + extractValue(negatedMatches[0]);
+          } else {
+            element.value = extractValue(matches[0]);
+          }
+        }
+
+        // Remove negated match (if present) from remaining query
+        negatedMatches.forEach(m => {
+          remainingQuery = remainingQuery.replace(m[0], '');
+        });
       } else {
-        // For text inputs (assignee, requester)
+        // For any other text inputs
         const element = document.getElementById(field);
         if (element) element.value = extractValue(matches[0]);
       }
@@ -157,28 +187,10 @@ function parseAndPopulateQuery(query) {
   }
   
   // Extract custom fields (including negated ones)
-  const customMatches = [...query.matchAll(customFieldPattern)];
   const customNegatedMatches = [...query.matchAll(customFieldNegatedPattern)];
+  const customMatches = [...query.matchAll(customFieldPattern)];
   
-  // Process positive custom fields
-  customMatches.forEach(match => {
-    const fieldId = match[1];
-    const value = match[2];
-    // Remove quotes if present
-    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
-                       (value.startsWith("'") && value.endsWith("'"))
-                       ? value.slice(1, -1) : value;
-    
-    // Try to find an existing input for this custom field
-    const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
-    if (input) {
-      input.value = cleanValue;
-    }
-    
-    remainingQuery = remainingQuery.replace(match[0], '');
-  });
-  
-  // Process negated custom fields
+  // Process negated custom fields first
   customNegatedMatches.forEach(match => {
     const fieldId = match[1];
     const value = match[2];
@@ -192,6 +204,24 @@ function parseAndPopulateQuery(query) {
     if (input) {
       // Prefix with `-` to indicate negation
       input.value = '-' + cleanValue;
+    }
+    
+    remainingQuery = remainingQuery.replace(match[0], '');
+  });
+
+  // Process positive custom fields
+  customMatches.forEach(match => {
+    const fieldId = match[1];
+    const value = match[2];
+    // Remove quotes if present
+    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
+                       (value.startsWith("'") && value.endsWith("'"))
+                       ? value.slice(1, -1) : value;
+    
+    // Try to find an existing input for this custom field
+    const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
+    if (input) {
+      input.value = cleanValue;
     }
     
     remainingQuery = remainingQuery.replace(match[0], '');
