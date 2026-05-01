@@ -108,7 +108,9 @@ function parseAndPopulateQuery(query) {
     status: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
     priority: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
     assignee: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
+    assigneeNegated: new RegExp(`-assignee:(${valuePattern})`, 'gi'),
     requester: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
+    requesterNegated: new RegExp(`-requester:(${valuePattern})`, 'gi'),
     tags: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
     tagsNegated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
   };
@@ -145,8 +147,26 @@ function parseAndPopulateQuery(query) {
         const allTags = [...positiveTags, ...negativeTags].join(', ');
         const element = document.getElementById('tags');
         if (element) element.value = allTags;
+      } else if (field === 'assignee' || field === 'requester') {
+        // For text inputs (assignee, requester). Support negated version by prefixing '-'.
+        const negatedPattern = field === 'assignee' ? fieldPatterns.assigneeNegated : fieldPatterns.requesterNegated;
+        const negatedMatches = [...query.matchAll(negatedPattern)];
+
+        const element = document.getElementById(field);
+        if (element) {
+          if (negatedMatches.length > 0) {
+            element.value = '-' + extractValue(negatedMatches[0]);
+          } else {
+            element.value = extractValue(matches[0]);
+          }
+        }
+
+        // Remove negated match (if present) from remaining query
+        negatedMatches.forEach(m => {
+          remainingQuery = remainingQuery.replace(m[0], '');
+        });
       } else {
-        // For text inputs (assignee, requester)
+        // For any other text inputs
         const element = document.getElementById(field);
         if (element) element.value = extractValue(matches[0]);
       }
