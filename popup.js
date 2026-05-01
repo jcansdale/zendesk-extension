@@ -113,10 +113,12 @@ function parseAndPopulateQuery(query) {
     tagsNegated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
   };
   
-  // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
-  const customFieldPattern = new RegExp(`\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
   // Negated custom field pattern: -custom_field_12345:value
+  // Process negated matches first, so the positive regex doesn't partially match inside.
   const customFieldNegatedPattern = new RegExp(`-custom_field_(\\d+):(${valuePattern})`, 'gi');
+  // Custom field pattern: custom_field_12345:value or custom_field_12345:"quoted value"
+  // Avoid matching when preceded by '-', to prevent double-processing.
+  const customFieldPattern = new RegExp(`(?<!-)\\bcustom_field_(\\d+):(${valuePattern})`, 'gi');
   
   let remainingQuery = query;
   
@@ -157,28 +159,10 @@ function parseAndPopulateQuery(query) {
   }
   
   // Extract custom fields (including negated ones)
-  const customMatches = [...query.matchAll(customFieldPattern)];
   const customNegatedMatches = [...query.matchAll(customFieldNegatedPattern)];
+  const customMatches = [...query.matchAll(customFieldPattern)];
   
-  // Process positive custom fields
-  customMatches.forEach(match => {
-    const fieldId = match[1];
-    const value = match[2];
-    // Remove quotes if present
-    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
-                       (value.startsWith("'") && value.endsWith("'"))
-                       ? value.slice(1, -1) : value;
-    
-    // Try to find an existing input for this custom field
-    const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
-    if (input) {
-      input.value = cleanValue;
-    }
-    
-    remainingQuery = remainingQuery.replace(match[0], '');
-  });
-  
-  // Process negated custom fields
+  // Process negated custom fields first
   customNegatedMatches.forEach(match => {
     const fieldId = match[1];
     const value = match[2];
@@ -192,6 +176,24 @@ function parseAndPopulateQuery(query) {
     if (input) {
       // Prefix with `-` to indicate negation
       input.value = '-' + cleanValue;
+    }
+    
+    remainingQuery = remainingQuery.replace(match[0], '');
+  });
+
+  // Process positive custom fields
+  customMatches.forEach(match => {
+    const fieldId = match[1];
+    const value = match[2];
+    // Remove quotes if present
+    const cleanValue = (value.startsWith('"') && value.endsWith('"')) || 
+                       (value.startsWith("'") && value.endsWith("'"))
+                       ? value.slice(1, -1) : value;
+    
+    // Try to find an existing input for this custom field
+    const input = document.querySelector(`input[data-field-id="${fieldId}"]`);
+    if (input) {
+      input.value = cleanValue;
     }
     
     remainingQuery = remainingQuery.replace(match[0], '');
