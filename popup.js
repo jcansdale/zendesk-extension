@@ -103,16 +103,25 @@ function parseAndPopulateQuery(query) {
   // Matches: field:"quoted value" or field:unquoted_value
   const valuePattern = '(?:"[^"]*"|\'[^\']*\'|\\S+)';
   
-  // Known field patterns (including negated versions with `-` prefix)
   const fieldPatterns = {
-    status: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
-    priority: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
-    assignee: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
-    assigneeNegated: new RegExp(`-assignee:(${valuePattern})`, 'gi'),
-    requester: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
-    requesterNegated: new RegExp(`-requester:(${valuePattern})`, 'gi'),
-    tags: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
-    tagsNegated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
+    status: {
+      positive: new RegExp(`\\bstatus:(${valuePattern})`, 'gi'),
+    },
+    priority: {
+      positive: new RegExp(`\\bpriority:(${valuePattern})`, 'gi'),
+    },
+    assignee: {
+      positive: new RegExp(`\\bassignee:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-assignee:(${valuePattern})`, 'gi'),
+    },
+    requester: {
+      positive: new RegExp(`\\brequester:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-requester:(${valuePattern})`, 'gi'),
+    },
+    tags: {
+      positive: new RegExp(`\\btags:(${valuePattern})`, 'gi'),
+      negated: new RegExp(`-tags:(${valuePattern})`, 'gi'),
+    },
   };
   
   // Negated custom field pattern: -custom_field_12345:value
@@ -125,8 +134,8 @@ function parseAndPopulateQuery(query) {
   let remainingQuery = query;
   
   // Extract standard fields
-  for (const [field, pattern] of Object.entries(fieldPatterns)) {
-    const matches = [...query.matchAll(pattern)];
+  for (const [field, patterns] of Object.entries(fieldPatterns)) {
+    const matches = [...query.matchAll(patterns.positive)];
     if (matches.length > 0) {
       if (field === 'status' || field === 'priority') {
         // For selects, use the first match
@@ -138,7 +147,7 @@ function parseAndPopulateQuery(query) {
         // Combine all tag matches (positive tags)
         const positiveTags = matches.map(m => extractValue(m));
         // Also get negated tags
-        const negatedMatches = [...query.matchAll(fieldPatterns.tagsNegated)];
+        const negatedMatches = patterns.negated ? [...query.matchAll(patterns.negated)] : [];
         const negativeTags = negatedMatches.map(m => '-' + extractValue(m));
         // Remove negated tag matches from remaining query
         negatedMatches.forEach(m => {
@@ -149,8 +158,7 @@ function parseAndPopulateQuery(query) {
         if (element) element.value = allTags;
       } else if (field === 'assignee' || field === 'requester') {
         // For text inputs (assignee, requester). Support negated version by prefixing '-'.
-        const negatedPattern = field === 'assignee' ? fieldPatterns.assigneeNegated : fieldPatterns.requesterNegated;
-        const negatedMatches = [...query.matchAll(negatedPattern)];
+        const negatedMatches = patterns.negated ? [...query.matchAll(patterns.negated)] : [];
 
         const element = document.getElementById(field);
         if (element) {
